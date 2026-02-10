@@ -1,15 +1,18 @@
 <!DOCTYPE html>
-<html lang="en>
+<html lang="en"> <!-- Added missing closing quote -->
 <head>
   <meta charset="UTF-8">
+  <title>Geolocation Fix</title>
 </head>
 <body>
   <p id="status">Location</p>
   <button onclick="getLocation()">Get Location</button>
+
   <script>
     function getLocation() {
       const status = document.getElementById("status");
       if (!navigator.geolocation) {
+        status.innerHTML = "Geolocation not supported";
         return;
       }
 
@@ -22,12 +25,14 @@
           Latitude: ${lat}<br>
           Longitude: ${lon}<br>`;
         },
+        (error) => { status.innerHTML = `Error: ${error.message}`; }, // Added error handler
         {
-          enableHighAccuracy: true;
-          timeout: 10000;
-          maximumAge: 1000;
+          enableHighAccuracy: true, // Changed ; to ,
+          timeout: 10000,           // Changed ; to ,
+          maximumAge: 1000
         }
-        ),
-    }
+      ); // Removed trailing comma
+    } // Removed trailing comma
   </script>
 </body>
+</html>
