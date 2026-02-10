@@ -3,7 +3,10 @@
   "features": [
     {
       "type": "Feature",
-      "properties": { "name": "CCHS" },
+      "properties": {
+        "name": "CCHS",
+        "music": "https://github.com/Aviationfan2009/The-Epcot-Center-Experience/blob/2ee1ba3c4b18fc9338acb9a0141dc7e953c01272/Horizons%20OMNIMAX%20Theater%20(Piano%20Solo).mp3"
+      },
       "geometry": {
         "type": "Polygon",
         "coordinates": [[
