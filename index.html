@@ -10,29 +10,44 @@
 
   <script>
     function getLocation() {
-      const status = document.getElementById("status");
-      if (!navigator.geolocation) {
-        status.innerHTML = "Geolocation not supported";
-        return;
+  const status = document.getElementById("status");
+  if (!navigator.geolocation) {
+    status.innerHTML = "Geolocation is not supported by your browser.";
+    return;
+  }
+
+  navigator.geolocation.watchPosition(
+    // 1. Success Callback
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      status.innerHTML = `Lat: ${latitude}<br>Lon: ${longitude}`;
+    },
+    // 2. Error Callback
+    (error) => {
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          status.innerHTML = "User denied the request for Geolocation.";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          status.innerHTML = "Location information is unavailable.";
+          break;
+        case error.TIMEOUT:
+          status.innerHTML = "The request to get user location timed out.";
+          break;
+        default:
+          status.innerHTML = "An unknown error occurred.";
+          break;
       }
-
-      navigator.geolocation.watchPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-
-          status.innerHTML = `
-          Latitude: ${lat}<br>
-          Longitude: ${lon}<br>`;
-        },
-        (error) => { status.innerHTML = `Error: ${error.message}`; }, // Added error handler
-        {
-          enableHighAccuracy: true, // Changed ; to ,
-          timeout: 10000,           // Changed ; to ,
-          maximumAge: 1000
-        }
-      ); // Removed trailing comma
-    } // Removed trailing comma
+      console.error(`Error Code ${error.code}: ${error.message}`);
+    },
+    // 3. Options
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 1000
+    }
+  );
+}
   </script>
 </body>
 </html>
