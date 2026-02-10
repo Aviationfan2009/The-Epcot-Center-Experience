@@ -1,56 +1,54 @@
 let geoData = null;
+let musicPlayer = new Audio();
+musicPlayer.loop = true;
+let currentTrack = "";
 
 async function startTracking() {
-    // 1. Load GeoJSON
-    try {
-        const response = await fetch('zones.json');
-        geoData = await response.json();
-    } catch (e) {
-        return alert("Could not load zones.json. Make sure you are using a local server.");
-    }
+    // 1. Fetch the JSON from your GitHub
+    const response = await fetch('zones.json');
+    geoData = await response.json();
 
-    if (!navigator.geolocation) return alert("Geolocation not supported");
+    // 2. Start watching location
+    navigator.geolocation.watchPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        let insideZone = null;
 
-    document.getElementById("status-box").innerText = "Locating...";
-
-    navigator.geolocation.watchPosition((pos) => {
-        const { latitude, longitude } = pos.coords;
-        document.getElementById("coords").innerText = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-        
-        let activeZone = "Outside All Zones";
-        let isInsideAny = false;
-
-        // 2. Loop through Features in GeoJSON
-        geoData.features.forEach(feature => {
-            if (feature.geometry.type === "Polygon") {
-                // GeoJSON uses [lng, lat], our function expects [lat, lng]
-                // polygon[0] is the exterior ring
-                if (isInside(latitude, longitude, feature.geometry.coordinates[0])) {
-                    activeZone = `Inside: ${feature.properties.name}`;
-                    isInsideAny = true;
-                }
+        // 3. Check if user is inside any Polygon
+        geoData.features.forEach(zone => {
+            if (isInside(latitude, longitude, zone.geometry.coordinates[0])) {
+                insideZone = zone;
             }
         });
 
-        // 3. Update UI & Map
-        const statusBox = document.getElementById("status-box");
-        statusBox.innerText = activeZone;
-        statusBox.className = isInsideAny ? "inside" : "";
+        const status = document.getElementById("status-box");
 
-        document.getElementById("map-container").style.display = "block";
-        document.getElementById("map-frame").src = `https://maps.google.com{latitude},${longitude}&z=18&output=embed`;
+        // 4. Play music if inside, pause if outside
+        if (insideZone) {
+            const trackUrl = insideZone.properties.music;
+            status.innerText = "Inside Zone: " + insideZone.properties.name;
+            status.style.background = "#1db954";
 
+            if (currentTrack !== trackUrl) {
+                currentTrack = trackUrl;
+                musicPlayer.src = trackUrl;
+                musicPlayer.play().catch(e => console.error("Audio block:", e));
+            }
+        } else {
+            status.innerText = "Outside Zones";
+            status.style.background = "#333";
+            musicPlayer.pause();
+            currentTrack = "";
+        }
     }, (err) => console.error(err), { enableHighAccuracy: true });
 }
 
-// PIP Algorithm adjusted for GeoJSON [lng, lat] format
+// Math logic to check if Point is in Polygon
 function isInside(lat, lng, polygon) {
     let inside = false;
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const xi = polygon[i][1], yi = polygon[i][0]; // [1]=lat, [0]=lng
-        const xj = polygon[j][1], yj = polygon[j][0];
-        const intersect = ((yi > lng) !== (yj > lng)) && 
-                          (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+        let xi = polygon[i][1], yi = polygon[i][0]; // GeoJSON is [lng, lat]
+        let xj = polygon[j][1], yj = polygon[j][0];
+        let intersect = ((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
         if (intersect) inside = !inside;
     }
     return inside;
