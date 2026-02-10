@@ -3,124 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Movement Tracker & Map</title>
+    <title>Live Zone Tracker</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; line-height: 1.6; background-color: #f9f9f9; }
-        .container { max-width: 500px; margin: 0 auto; text-align: center; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
         
-        #status-display { margin-top: 20px; min-height: 100px; }
-        .coords { font-size: 1.4rem; font-weight: bold; color: #007bff; margin: 5px 0; }
-        .error-msg { color: #d9534f; background: #fdf2f2; padding: 10px; border-radius: 5px; }
+        #zone-status { 
+            font-size: 1.5rem; font-weight: bold; padding: 15px; border-radius: 8px; margin: 15px 0;
+            background: #e9ecef; color: #6c757d; 
+        }
+        .inside { background: #d4edda !important; color: #155724 !important; border: 2px solid #c3e6cb; }
         
-        button { background-color: #4CAF50; color: white; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 8px; cursor: pointer; transition: 0.3s; }
-        button:hover { background-color: #45a049; }
-
-        /* Corner Map Styling */
         #map-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 250px;
-            height: 250px;
-            border: 4px solid white;
-            border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-            overflow: hidden;
-            display: none; /* Hidden until start */
-            z-index: 9999;
+            position: fixed; bottom: 20px; right: 20px; width: 250px; height: 250px;
+            border: 4px solid white; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            overflow: hidden; display: none;
         }
         iframe { width: 100%; height: 100%; border: none; }
+        button { padding: 12px 24px; font-size: 1rem; cursor: pointer; border-radius: 8px; border: none; background: #007bff; color: white; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Live GPS Tracker</h2>
-    <p>Coordinates update automatically as you move.</p>
-    
-    <button id="action-btn" onclick="initTracking()">Start Tracking</button>
-
-    <div id="status-display">
-        <div id="text-output">Click start to begin...</div>
-    </div>
+    <h2>Zone Monitor</h2>
+    <div id="zone-status">Outside All Zones</div>
+    <div id="coords-display">Waiting for start...</div>
+    <br>
+    <button id="action-btn" onclick="startTracking()">Start Tracking</button>
 </div>
 
-<!-- Mini Map in the Corner -->
 <div id="map-container">
     <iframe id="map-frame" src=""></iframe>
 </div>
 
 <script>
+    // --- CONFIGURE YOUR ZONES HERE ---
+    // A zone is a "Polygon" (a list of lat/lon points). 
+    // IMPORTANT: The first and last point should be the same to "close" the shape.
+    const ZONES = [
+        {
+            name: "Home Base",
+            points: [
+                { lat: 36.444, lng: -75.999 },
+                { lat: 36.445, lng: -75.999 },
+                { lat: 36.445, lng: -75.998 },
+                { lat: 36.444, lng: -75.998 },
+                { lat: 36.444, lng: -75.999 } // Closing point
+            ]
+        },
+        {
+            name: "The Warehouse",
+            points: [
+                { lat: 40.712, lng: -74.006 },
+                { lat: 40.713, lng: -74.006 },
+                { lat: 40.713, lng: -74.005 },
+                { lat: 40.712, lng: -74.005 },
+                { lat: 40.712, lng: -74.006 }
+            ]
+        }
+    ];
+
     let watchID = null;
 
-    function initTracking() {
-        const output = document.getElementById("text-output");
-        const mapBox = document.getElementById("map-container");
-
-        // 1. Check Browser Compatibility
-        if (!navigator.geolocation) {
-            output.innerHTML = "<p class='error-msg'>Geolocation is not supported by this browser.</p>";
-            return;
+    // Ray-casting algorithm to check if a point is inside a polygon
+    function isInside(point, vs) {
+        let x = point.lat, y = point.lng;
+        let inside = false;
+        for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+            let xi = vs[i].lat, yi = vs[i].lng;
+            let xj = vs[j].lat, yj = vs[j].lng;
+            let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
         }
-
-        // 2. Pre-Permission Prompt
-        const consent = confirm("Allow access to your location to track movement and show the live map?");
-        if (!consent) return;
-
-        output.innerHTML = "Searching for satellites...";
-        
-        // 3. Start watching movement
-        watchID = navigator.geolocation.watchPosition(
-            (position) => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-                
-                // Show Map and Update UI
-                mapBox.style.display = "block";
-                output.innerHTML = `
-                    <p>Device is moving!</p>
-                    <div class="coords">${lat.toFixed(6)}</div>
-                    <div class="coords">${lon.toFixed(6)}</div>
-                    <small>Accuracy: ${Math.round(position.coords.accuracy)} meters</small>
-                `;
-
-                // Update Corner Map (z=18 is roughly 0.1 mile zoom)
-                const zoom = 18;
-                const mapUrl = `https://maps.google.com{lat},${lon}&z=${zoom}&output=embed`;
-                document.getElementById("map-frame").src = mapUrl;
-            },
-            (error) => {
-                let msg = "";
-                switch(error.code) {
-                    case error.PERMISSION_DENIED: msg = "Permission Denied. Please enable location in settings."; break;
-                    case error.POSITION_UNAVAILABLE: msg = "Location unavailable. Check GPS signal."; break;
-                    case error.TIMEOUT: msg = "Request timed out."; break;
-                    default: msg = "An unknown error occurred."; break;
-                }
-                output.innerHTML = `<p class='error-msg'>${msg}</p>`;
-            },
-            {
-                enableHighAccuracy: true, // Use GPS
-                timeout: 10000,           // 10 second timeout
-                maximumAge: 0             // No caching
-            }
-        );
-
-        // Update button
-        const btn = document.getElementById("action-btn");
-        btn.innerText = "Stop Tracking";
-        btn.style.backgroundColor = "#d9534f";
-        btn.onclick = stopTracking;
+        return inside;
     }
 
-    function stopTracking() {
-        if (watchID !== null) {
-            navigator.geolocation.clearWatch(watchID);
-            watchID = null;
-        }
-        location.reload(); // Refresh to reset state
+    function startTracking() {
+        if (!navigator.geolocation) return alert("GPS not supported");
+
+        watchID = navigator.geolocation.watchPosition((position) => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            
+            // 1. Update text display
+            document.getElementById("coords-display").innerText = `Lat: ${userLat.toFixed(5)}, Lng: ${userLng.toFixed(5)}`;
+
+            // 2. Check Zones
+            let currentZoneName = "Outside All Zones";
+            let foundInside = false;
+
+            ZONES.forEach(zone => {
+                if (isInside({lat: userLat, lng: userLng}, zone.points)) {
+                    currentZoneName = `Inside: ${zone.name}`;
+                    foundInside = true;
+                }
+            });
+
+            const statusDiv = document.getElementById("zone-status");
+            statusDiv.innerText = currentZoneName;
+            statusDiv.className = foundInside ? "inside" : "";
+
+            // 3. Update Map
+            document.getElementById("map-container").style.display = "block";
+            document.getElementById("map-frame").src = `https://maps.google.com{userLat},${userLng}&z=18&output=embed`;
+
+        }, (err) => console.error(err), { enableHighAccuracy: true });
     }
 </script>
-
 </body>
 </html>
