@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en>
+<head>
+  <meta charset="UTF-8">
+</head>
+<body>
+  <p id="status">Location</p>
+  <button onclick="getLocation()">Get Location</button>
+  <script>
+    function getLocation() {
+      const status = document.getElementById("status");
+      if (!navigator.geolocation) {
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+
+          status.textContent =
+            'Latitude: ${lat}\nLongitude: ${lon}';
+        },
+        ),
+    }
+  </script>
+</body>
