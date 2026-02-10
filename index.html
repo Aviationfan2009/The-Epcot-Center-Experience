@@ -3,83 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geolocation Tracker</title>
+    <title>Auto-Updating GPS</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        #status { font-weight: bold; margin-bottom: 10px; color: #333; }
-        .error { color: #d9534f; }
-        .success { color: #5cb85c; }
-        button { padding: 10px 20px; cursor: pointer; }
+        body { font-family: sans-serif; padding: 20px; text-align: center; }
+        #status-box { 
+            background: #f4f4f9; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 20px auto; 
+            max-width: 400px;
+            border: 1px solid #ddd;
+        }
+        .coords { font-size: 1.2rem; font-family: monospace; color: #007bff; }
+        .timestamp { font-size: 0.8rem; color: #666; margin-top: 10px; }
+        button { padding: 10px 20px; font-size: 1rem; cursor: pointer; margin: 5px; }
+        #stop-btn { background-color: #ff4d4d; color: white; border: none; display: none; }
+        #start-btn { background-color: #4CAF50; color: white; border: none; }
     </style>
 </head>
 <body>
 
-    <h2>Live Location Tracker</h2>
-    <p id="status">Click the button to start tracking.</p>
-    <button onclick="startTracking()">Get Location</button>
+    <h2>Auto-Updating Tracker</h2>
+    <p>Movement will update the coordinates automatically.</p>
+
+    <div id="status-box">
+        <div id="display">Click start to track movement</div>
+        <div id="time" class="timestamp"></div>
+    </div>
+
+    <button id="start-btn" onclick="startTracking()">Start Tracking</button>
+    <button id="stop-btn" onclick="stopTracking()">Stop Tracking</button>
 
     <script>
+        let watchID = null; // Variable to store the listener ID
+
         function startTracking() {
-            const status = document.getElementById("status");
-
-            // 1. Check if browser supports Geolocation API
             if (!navigator.geolocation) {
-                status.innerHTML = "Geolocation is not supported by your browser.";
-                status.className = "error";
+                alert("Geolocation not supported");
                 return;
             }
 
-            // 2. Pre-Permission Prompt (Best Practice)
-            // Improves UX by explaining WHY you need the data before the browser pop-up.
-            const userConsent = confirm("We use your location to provide real-time updates. Allow access?");
-            
-            if (!userConsent) {
-                status.innerHTML = "Permission request was cancelled by the user.";
-                return;
-            }
+            // UI Changes
+            document.getElementById("start-btn").style.display = "none";
+            document.getElementById("stop-btn").style.display = "inline-block";
+            document.getElementById("display").innerHTML = "Waiting for GPS signal...";
 
-            status.innerHTML = "Locating...";
-
-            // 3. Start watching position
-            // watchPosition returns an ID you can use with clearWatch() to stop tracking.
-            const watchID = navigator.geolocation.watchPosition(
-                // Success Callback
+            // watchPosition runs EVERY time the device moves
+            watchID = navigator.geolocation.watchPosition(
                 (position) => {
-                    const { latitude, longitude, accuracy } = position.coords;
-                    status.className = "success";
-                    status.innerHTML = `
-                        <strong>Location Found:</strong><br>
-                        Latitude: ${latitude.toFixed(6)}<br>
-                        Longitude: ${longitude.toFixed(6)}<br>
-                        Accuracy: within ${accuracy.toFixed(0)} meters
+                    const lat = position.coords.latitude.toFixed(6);
+                    const lon = position.coords.longitude.toFixed(6);
+                    const time = new Date(position.timestamp).toLocaleTimeString();
+
+                    document.getElementById("display").innerHTML = `
+                        <div class="coords">Lat: ${lat}</div>
+                        <div class="coords">Lon: ${lon}</div>
                     `;
+                    document.getElementById("time").innerHTML = `Last updated: ${time}`;
                 },
-                // Error Callback
                 (error) => {
-                    status.className = "error";
-                    switch (error.code) {
-                        case error.PERMISSION_DENIED:
-                            status.innerHTML = "User denied the request for Geolocation.";
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            status.innerHTML = "Location information is unavailable (No GPS/Network).";
-                            break;
-                        case error.TIMEOUT:
-                            status.innerHTML = "The request to get user location timed out.";
-                            break;
-                        default:
-                            status.innerHTML = "An unknown error occurred.";
-                            break;
-                    }
-                    console.error(`Error (${error.code}): ${error.message}`);
+                    document.getElementById("display").innerHTML = `Error: ${error.message}`;
+                    stopTracking(); // Stop if there's a permanent error
                 },
-                // Options Object
                 {
-                    enableHighAccuracy: true, // Uses GPS if available
-                    timeout: 15000,           // Wait 15 seconds max
-                    maximumAge: 0             // Do not use a cached position
+                    enableHighAccuracy: true, // Force GPS usage for better movement detection
+                    timeout: 10000,
+                    maximumAge: 0             // Don't use old cached data
                 }
             );
+        }
+
+        function stopTracking() {
+            if (watchID !== null) {
+                navigator.geolocation.clearWatch(watchID); // This stops the hardware GPS
+                watchID = null;
+            }
+            
+            document.getElementById("start-btn").style.display = "inline-block";
+            document.getElementById("stop-btn").style.display = "none";
+            document.getElementById("display").innerHTML = "Tracking Stopped.";
+            document.getElementById("time").innerHTML = "";
         }
     </script>
 </body>
