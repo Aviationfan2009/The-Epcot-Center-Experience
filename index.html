@@ -3,87 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auto-Updating GPS</title>
+    <title>Live Movement Tracker & Map</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; text-align: center; }
-        #status-box { 
-            background: #f4f4f9; 
-            border-radius: 8px; 
-            padding: 20px; 
-            margin: 20px auto; 
-            max-width: 400px;
-            border: 1px solid #ddd;
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; line-height: 1.6; background-color: #f9f9f9; }
+        .container { max-width: 500px; margin: 0 auto; text-align: center; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        #status-display { margin-top: 20px; min-height: 100px; }
+        .coords { font-size: 1.4rem; font-weight: bold; color: #007bff; margin: 5px 0; }
+        .error-msg { color: #d9534f; background: #fdf2f2; padding: 10px; border-radius: 5px; }
+        
+        button { background-color: #4CAF50; color: white; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #45a049; }
+
+        /* Corner Map Styling */
+        #map-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 250px;
+            height: 250px;
+            border: 4px solid white;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            overflow: hidden;
+            display: none; /* Hidden until start */
+            z-index: 9999;
         }
-        .coords { font-size: 1.2rem; font-family: monospace; color: #007bff; }
-        .timestamp { font-size: 0.8rem; color: #666; margin-top: 10px; }
-        button { padding: 10px 20px; font-size: 1rem; cursor: pointer; margin: 5px; }
-        #stop-btn { background-color: #ff4d4d; color: white; border: none; display: none; }
-        #start-btn { background-color: #4CAF50; color: white; border: none; }
+        iframe { width: 100%; height: 100%; border: none; }
     </style>
 </head>
 <body>
 
-    <h2>Auto-Updating Tracker</h2>
-    <p>Movement will update the coordinates automatically.</p>
+<div class="container">
+    <h2>Live GPS Tracker</h2>
+    <p>Coordinates update automatically as you move.</p>
+    
+    <button id="action-btn" onclick="initTracking()">Start Tracking</button>
 
-    <div id="status-box">
-        <div id="display">Click start to track movement</div>
-        <div id="time" class="timestamp"></div>
+    <div id="status-display">
+        <div id="text-output">Click start to begin...</div>
     </div>
+</div>
 
-    <button id="start-btn" onclick="startTracking()">Start Tracking</button>
-    <button id="stop-btn" onclick="stopTracking()">Stop Tracking</button>
+<!-- Mini Map in the Corner -->
+<div id="map-container">
+    <iframe id="map-frame" src=""></iframe>
+</div>
 
-    <script>
-        let watchID = null; // Variable to store the listener ID
+<script>
+    let watchID = null;
 
-        function startTracking() {
-            if (!navigator.geolocation) {
-                alert("Geolocation not supported");
-                return;
-            }
+    function initTracking() {
+        const output = document.getElementById("text-output");
+        const mapBox = document.getElementById("map-container");
 
-            // UI Changes
-            document.getElementById("start-btn").style.display = "none";
-            document.getElementById("stop-btn").style.display = "inline-block";
-            document.getElementById("display").innerHTML = "Waiting for GPS signal...";
+        // 1. Check Browser Compatibility
+        if (!navigator.geolocation) {
+            output.innerHTML = "<p class='error-msg'>Geolocation is not supported by this browser.</p>";
+            return;
+        }
 
-            // watchPosition runs EVERY time the device moves
-            watchID = navigator.geolocation.watchPosition(
-                (position) => {
-                    const lat = position.coords.latitude.toFixed(6);
-                    const lon = position.coords.longitude.toFixed(6);
-                    const time = new Date(position.timestamp).toLocaleTimeString();
+        // 2. Pre-Permission Prompt
+        const consent = confirm("Allow access to your location to track movement and show the live map?");
+        if (!consent) return;
 
-                    document.getElementById("display").innerHTML = `
-                        <div class="coords">Lat: ${lat}</div>
-                        <div class="coords">Lon: ${lon}</div>
-                    `;
-                    document.getElementById("time").innerHTML = `Last updated: ${time}`;
-                },
-                (error) => {
-                    document.getElementById("display").innerHTML = `Error: ${error.message}`;
-                    stopTracking(); // Stop if there's a permanent error
-                },
-                {
-                    enableHighAccuracy: true, // Force GPS usage for better movement detection
-                    timeout: 10000,
-                    maximumAge: 0             // Don't use old cached data
+        output.innerHTML = "Searching for satellites...";
+        
+        // 3. Start watching movement
+        watchID = navigator.geolocation.watchPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                
+                // Show Map and Update UI
+                mapBox.style.display = "block";
+                output.innerHTML = `
+                    <p>Device is moving!</p>
+                    <div class="coords">${lat.toFixed(6)}</div>
+                    <div class="coords">${lon.toFixed(6)}</div>
+                    <small>Accuracy: ${Math.round(position.coords.accuracy)} meters</small>
+                `;
+
+                // Update Corner Map (z=18 is roughly 0.1 mile zoom)
+                const zoom = 18;
+                const mapUrl = `https://maps.google.com{lat},${lon}&z=${zoom}&output=embed`;
+                document.getElementById("map-frame").src = mapUrl;
+            },
+            (error) => {
+                let msg = "";
+                switch(error.code) {
+                    case error.PERMISSION_DENIED: msg = "Permission Denied. Please enable location in settings."; break;
+                    case error.POSITION_UNAVAILABLE: msg = "Location unavailable. Check GPS signal."; break;
+                    case error.TIMEOUT: msg = "Request timed out."; break;
+                    default: msg = "An unknown error occurred."; break;
                 }
-            );
-        }
-
-        function stopTracking() {
-            if (watchID !== null) {
-                navigator.geolocation.clearWatch(watchID); // This stops the hardware GPS
-                watchID = null;
+                output.innerHTML = `<p class='error-msg'>${msg}</p>`;
+            },
+            {
+                enableHighAccuracy: true, // Use GPS
+                timeout: 10000,           // 10 second timeout
+                maximumAge: 0             // No caching
             }
-            
-            document.getElementById("start-btn").style.display = "inline-block";
-            document.getElementById("stop-btn").style.display = "none";
-            document.getElementById("display").innerHTML = "Tracking Stopped.";
-            document.getElementById("time").innerHTML = "";
+        );
+
+        // Update button
+        const btn = document.getElementById("action-btn");
+        btn.innerText = "Stop Tracking";
+        btn.style.backgroundColor = "#d9534f";
+        btn.onclick = stopTracking;
+    }
+
+    function stopTracking() {
+        if (watchID !== null) {
+            navigator.geolocation.clearWatch(watchID);
+            watchID = null;
         }
-    </script>
+        location.reload(); // Refresh to reset state
+    }
+</script>
+
 </body>
 </html>
