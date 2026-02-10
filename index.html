@@ -13,13 +13,20 @@
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
+      navigator.geolocation.watchPosition(
         (position) => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
 
-          status.textContent = 'Latitude: ${lat}\nLongitude: ${lon}';
+          status.innerHTML = `
+          Latitude: ${lat}<br>
+          Longitude: ${lon}<br>`;
         },
+        {
+          enableHighAccuracy: true;
+          timeout: 10000;
+          maximumAge: 1000;
+        }
         ),
     }
   </script>
