@@ -2,31 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoJSON Zone Tracker</title>
+    <title>GPS Music Monitor</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }
-        .card { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; width: 320px; }
-        #status-box { font-size: 1.2rem; font-weight: bold; margin: 20px 0; padding: 15px; border-radius: 10px; background: #eee; }
-        .inside { background: #4caf50 !important; color: white; }
-        button { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 1rem; }
-        #map-container { position: fixed; bottom: 20px; right: 20px; width: 250px; height: 250px; border: 4px solid white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: none; }
-        iframe { width: 100%; height: 100%; border: none; }
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding-top: 50px; }
+        #status-box { margin: 20px auto; width: 250px; padding: 20px; border-radius: 10px; background: #333; font-weight: bold; }
+        button { background: #1db954; color: white; border: none; padding: 15px 30px; border-radius: 30px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
-
-<div class="card">
-    <h2>Zone Monitor</h2>
+    <h2>Zone Music Player</h2>
     <div id="status-box">Ready</div>
-    <p id="coords">Lat: --, Lng: --</p>
-    <button onclick="startTracking()">Start Monitoring</button>
-</div>
-
-<div id="map-container">
-    <iframe id="map-frame"></iframe>
-</div>
-
-<script src="tracker.js"></script>
+    <button onclick="startTracking()">Start Tracker</button>
+    <script src="tracker.js"></script>
 </body>
 </html>
